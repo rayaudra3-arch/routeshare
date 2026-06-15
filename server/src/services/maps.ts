@@ -42,7 +42,7 @@ async function routeLeg(origin: Point, destination: Point): Promise<{ distanceMe
       key: config.GOOGLE_MAPS_API_KEY,
       origins: [{ lat: origin.lat, lng: origin.lng }],
       destinations: [{ lat: destination.lat, lng: destination.lng }],
-      units: 'imperial'
+      units: 'imperial' as any
     }
   });
   const element = response.data.rows[0]?.elements[0];
