@@ -4,7 +4,7 @@ import { db, tx } from '../db/database.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { estimateRiderMatch } from '../services/maps.js';
-import { createBookingCheckoutSession } from '../services/payments.js';
+import { createBookingCheckoutSession, stripe } from '../services/payments.js';
 import { createBookingSchema, matchDecisionSchema } from '../utils/validation.js';
 
 export const bookingsRouter = Router();
@@ -23,6 +23,7 @@ function serializeBooking(row: any) {
     etaPickupTime: row.eta_pickup_time,
     matchScore: row.match_score,
     detourSeconds: row.detour_seconds,
+    stripeCheckoutUrl: row.stripe_checkout_url,
     fareLockedAt: row.fare_locked_at
   };
 }
@@ -104,7 +105,7 @@ bookingsRouter.post('/decision', requireAuth, requireRole('Driver'), validateBod
       description: `${booking.pickup_label} to ${booking.dropoff_label}`
     });
     checkoutUrl = session.url ?? null;
-    db.prepare('UPDATE bookings SET stripe_checkout_session_id = ? WHERE id = ?').run(session.id, booking.id);
+    db.prepare('UPDATE bookings SET stripe_checkout_session_id = ?, stripe_checkout_url = ? WHERE id = ?').run(session.id, checkoutUrl, booking.id);
   }
 
   const updated = db.prepare('SELECT b.*, u.name as rider_name FROM bookings b JOIN users u ON u.id=b.rider_id WHERE b.id = ?').get(req.body.bookingId);
@@ -112,12 +113,15 @@ bookingsRouter.post('/decision', requireAuth, requireRole('Driver'), validateBod
 });
 
 bookingsRouter.post('/:id/rider-check-in', requireAuth, requireRole('Rider'), (req, res) => {
+  const payableStatus = stripe ? 'Paid' : 'Accepted';
   const result = db.prepare(`
     UPDATE bookings
     SET check_in_status = 'RiderInitiated', rider_check_in_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND rider_id = ? AND match_status IN ('Accepted', 'Paid') AND check_in_status = 'Pending'
-  `).run(req.params.id, req.user!.id);
-  if (result.changes === 0) return res.status(409).json({ error: 'Rider check-in is not available for this fare' });
+    WHERE id = ? AND rider_id = ? AND match_status = ? AND check_in_status = 'Pending'
+  `).run(req.params.id, req.user!.id, payableStatus);
+  if (result.changes === 0) {
+    return res.status(409).json({ error: stripe ? 'Payment must be completed before rider check-in' : 'Rider check-in is not available for this fare' });
+  }
   res.json(serializeBooking(db.prepare('SELECT b.*, u.name as rider_name FROM bookings b JOIN users u ON u.id=b.rider_id WHERE b.id = ?').get(req.params.id)));
 });
 

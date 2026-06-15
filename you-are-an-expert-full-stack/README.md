@@ -34,6 +34,10 @@ This repository also includes `netlify.toml` and `netlify/functions/api.ts`. Net
 
 Set the same environment variables from `.env` in Netlify Site settings before using live Stripe payments.
 
+Keep `NODE_ENV=production` in Netlify. The included `netlify.toml` sets `NPM_FLAGS=--include=dev` so Netlify still installs the TypeScript/Vite build tools.
+
+For preview-only testing without a hosted database, the serverless API uses `/tmp/routeshare.sqlite`. Do not rely on that for real rider records, check-ins, or payouts because serverless temp storage can reset.
+
 ## Security notes
 
 - Passwords are hashed with bcrypt before storage.

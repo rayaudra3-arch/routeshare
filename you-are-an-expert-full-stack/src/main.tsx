@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Banknote,
@@ -42,6 +42,7 @@ type Booking = {
   matchScore: number;
   detourSeconds: number;
   fareLockedAt?: string;
+  stripeCheckoutUrl?: string;
 };
 type LocationInput = { lat: number; lng: number; label: string };
 type User = {
@@ -272,6 +273,7 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
 }
 
 function DriverPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof useApi>; refresh: () => Promise<void>; trips: Trip[]; bookings: Booking[] }) {
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     startLabel: 'Downtown Chicago',
     startLat: '41.8781',
@@ -285,31 +287,47 @@ function DriverPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof
 
   async function createTrip(event: React.FormEvent) {
     event.preventDefault();
-    await api.request('/api/trips', {
-      method: 'POST',
-      body: JSON.stringify({
-        startLocation: { label: safeText(form.startLabel), lat: Number(form.startLat), lng: Number(form.startLng) },
-        endLocation: { label: safeText(form.endLabel), lat: Number(form.endLat), lng: Number(form.endLng) },
-        departureTime: new Date(form.departureTime).toISOString(),
-        maxCapacity: Number(form.maxCapacity)
-      })
-    });
-    await refresh();
+    setError('');
+    try {
+      await api.request('/api/trips', {
+        method: 'POST',
+        body: JSON.stringify({
+          startLocation: { label: safeText(form.startLabel), lat: Number(form.startLat), lng: Number(form.startLng) },
+          endLocation: { label: safeText(form.endLabel), lat: Number(form.endLat), lng: Number(form.endLng) },
+          departureTime: new Date(form.departureTime).toISOString(),
+          maxCapacity: Number(form.maxCapacity)
+        })
+      });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   async function decide(bookingId: string, decision: 'Accepted' | 'Rejected') {
-    await api.request('/api/bookings/decision', { method: 'POST', body: JSON.stringify({ bookingId, decision }) });
-    await refresh();
+    setError('');
+    try {
+      await api.request('/api/bookings/decision', { method: 'POST', body: JSON.stringify({ bookingId, decision }) });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   async function driverCheck(bookingId: string) {
-    await api.request(`/api/bookings/${bookingId}/driver-check-in`, { method: 'POST', body: JSON.stringify({}) });
-    await refresh();
+    setError('');
+    try {
+      await api.request(`/api/bookings/${bookingId}/driver-check-in`, { method: 'POST', body: JSON.stringify({}) });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   return (
     <>
       <h3>Driver command</h3>
+      {error && <p className="error banner">{error}</p>}
       <form className="mini-form" onSubmit={createTrip}>
         <input value={form.startLabel} onChange={(e) => setForm({ ...form, startLabel: e.target.value })} />
         <input value={form.endLabel} onChange={(e) => setForm({ ...form, endLabel: e.target.value })} />
@@ -342,6 +360,7 @@ function DriverPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof
 }
 
 function RiderPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof useApi>; refresh: () => Promise<void>; trips: Trip[]; bookings: Booking[] }) {
+  const [error, setError] = useState('');
   const firstTrip = trips[0];
   const [form, setForm] = useState({
     tripId: '',
@@ -357,25 +376,36 @@ function RiderPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof 
 
   async function requestFare(event: React.FormEvent) {
     event.preventDefault();
-    await api.request('/api/bookings', {
-      method: 'POST',
-      body: JSON.stringify({
-        tripId,
-        pickupLocation: { label: safeText(form.pickupLabel), lat: Number(form.pickupLat), lng: Number(form.pickupLng) },
-        dropoffLocation: { label: safeText(form.dropoffLabel), lat: Number(form.dropoffLat), lng: Number(form.dropoffLng) }
-      })
-    });
-    await refresh();
+    setError('');
+    try {
+      await api.request('/api/bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          tripId,
+          pickupLocation: { label: safeText(form.pickupLabel), lat: Number(form.pickupLat), lng: Number(form.pickupLng) },
+          dropoffLocation: { label: safeText(form.dropoffLabel), lat: Number(form.dropoffLat), lng: Number(form.dropoffLng) }
+        })
+      });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   async function riderAction(bookingId: string, action: 'rider-check-in' | 'rider-confirm') {
-    await api.request(`/api/bookings/${bookingId}/${action}`, { method: 'POST', body: JSON.stringify({}) });
-    await refresh();
+    setError('');
+    try {
+      await api.request(`/api/bookings/${bookingId}/${action}`, { method: 'POST', body: JSON.stringify({}) });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   return (
     <>
       <h3>Rider booking</h3>
+      {error && <p className="error banner">{error}</p>}
       <form className="mini-form" onSubmit={requestFare}>
         <select value={tripId} onChange={(e) => setForm({ ...form, tripId: e.target.value })}>
           {trips.map((trip) => <option key={trip.id} value={trip.id}>{trip.startLocation.label} → {trip.endLocation.label}</option>)}
@@ -393,7 +423,8 @@ function RiderPanel({ api, refresh, trips, bookings }: { api: ReturnType<typeof 
               <span>{booking.pickupLocation.label} → {booking.dropoffLocation.label}</span>
               <small>Check-in: {booking.checkInStatus}</small>
             </div>
-            {['Accepted', 'Paid'].includes(booking.matchStatus) && booking.checkInStatus === 'Pending' && <button onClick={() => riderAction(booking.id, 'rider-check-in')}>I entered vehicle</button>}
+            {booking.matchStatus === 'Accepted' && booking.stripeCheckoutUrl && <a className="pay-link" href={booking.stripeCheckoutUrl}>Pay fare</a>}
+            {booking.matchStatus === 'Paid' && booking.checkInStatus === 'Pending' && <button onClick={() => riderAction(booking.id, 'rider-check-in')}>I entered vehicle</button>}
             {booking.checkInStatus === 'DriverChecked' && <button onClick={() => riderAction(booking.id, 'rider-confirm')}>Confirm pickup</button>}
             {booking.checkInStatus === 'RiderConfirmed' && <span className="status good"><CheckCircle2 size={14} /> Validated</span>}
           </article>

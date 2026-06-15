@@ -9,6 +9,7 @@ import { contextSchema, loginSchema, registerSchema } from '../utils/validation.
 export const authRouter = Router();
 
 function publicUser(row: any) {
+  if (!row) throw new Error('User record was not found');
   const user = {
     id: row.id,
     email: row.email,
@@ -47,6 +48,7 @@ authRouter.post('/login', validateBody(loginSchema), async (req, res) => {
 
 authRouter.get('/me', requireAuth, (req, res) => {
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!row) return res.status(404).json({ error: 'User not found' });
   res.json(publicUser(row));
 });
 

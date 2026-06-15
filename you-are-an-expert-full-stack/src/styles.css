@@ -67,7 +67,7 @@ input, select {
 }
 .segmented .active { background: white; color: #172033; box-shadow: 0 1px 3px rgba(17, 24, 39, 0.1); }
 
-.primary-btn, .ghost-btn, .fare-row button, .row-actions button {
+.primary-btn, .ghost-btn, .fare-row button, .row-actions button, .pay-link {
   border: 0;
   border-radius: 8px;
   min-height: 40px;
@@ -81,6 +81,7 @@ input, select {
 .primary-btn { background: #0f6bff; color: white; }
 .primary-btn:disabled { background: #9fb7d9; cursor: not-allowed; }
 .ghost-btn, .fare-row button, .row-actions button { background: #eef3f8; color: #172033; }
+.pay-link { background: #16a36f; color: white; text-decoration: none; width: fit-content; }
 .row-actions { display: flex; gap: 8px; }
 .hint, .empty { color: #667085; font-size: 13px; }
 .error { color: #b42318; font-weight: 700; }

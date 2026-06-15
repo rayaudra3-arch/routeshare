@@ -16,7 +16,7 @@ paymentsRouter.post('/stripe/webhook', express.raw({ type: 'application/json' })
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const bookingId = session.metadata?.bookingId;
-      if (bookingId) {
+      if (bookingId && session.payment_status === 'paid') {
         db.prepare(`
           UPDATE bookings
           SET match_status = 'Paid', stripe_payment_intent_id = ?, updated_at = CURRENT_TIMESTAMP

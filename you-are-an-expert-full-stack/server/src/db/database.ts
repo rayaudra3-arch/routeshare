@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 
-const dbPath = path.resolve(process.cwd(), config.DATABASE_URL);
+const defaultServerlessPath = process.env.NETLIFY || process.env.VERCEL ? '/tmp/routeshare.sqlite' : config.DATABASE_URL;
+const dbPath = path.resolve(process.cwd(), process.env.DATABASE_URL || defaultServerlessPath);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 export const db = new Database(dbPath);
